@@ -1,6 +1,9 @@
 'use client';
+
 import { useEffect, useState } from 'react';
+import { useTranslation } from "react-i18next";
 import * as S from '../style/main2';
+import { FiGlobe } from "react-icons/fi"; // 지구본 아이콘
 
 const colors = [
   "#E60026", "#E08325", "#FFFF33", "#8FCB82", "#3F7B1A",
@@ -12,11 +15,31 @@ function mean(values: number[]): number {
 }
 
 export default function Main() {
+  const { t, i18n } = useTranslation();
   const [inputs, setInputs] = useState<string[]>(["", "", ""]);
   const [view, setView] = useState<"line" | "table" | "boxplot" | null>(null);
   const [googleLoaded, setGoogleLoaded] = useState<boolean>(false);
+  const [isClient, setIsClient] = useState(false);
+  const [errors, setErrors] = useState<string[]>([]); // 입력 에러 상태
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+
+  const languages = [
+    { code: 'ko', label: '한국어 (KO)' },
+    { code: 'ja', label: '日本語 (JA)' }
+  ];
+
+  const currentLang = i18n.language || 'ko';
+
+  const handleLanguageChange = (code: string) => {
+    i18n.changeLanguage(code);
+    setDropdownOpen(false);
+  };
+
+  useEffect(() => setIsClient(true), []);
 
   useEffect(() => {
+    if (!isClient) return;
+
     const script = document.createElement("script");
     script.src = "https://www.gstatic.com/charts/loader.js";
     script.async = true;
@@ -27,14 +50,11 @@ export default function Main() {
       });
     };
     document.body.appendChild(script);
-
-    return () => {
-      document.body.removeChild(script);
-    };
-  }, []);
+    return () => { if (document.body.contains(script)) document.body.removeChild(script); };
+  }, [isClient]);
 
   useEffect(() => {
-    if (!googleLoaded || !view) return;
+    if (!isClient || !googleLoaded || !view) return;
 
     const chartDiv = document.getElementById("chart_div");
     if (!chartDiv) return;
@@ -43,29 +63,35 @@ export default function Main() {
     if (!google || !google.visualization) return;
 
     const parsed: number[][] = inputs.map((input) =>
-      input.split(",").map((v) => parseFloat(v.trim())).filter((v) => !isNaN(v))
+      input.split(",").map(v => parseFloat(v.trim())).filter(v => !isNaN(v))
     );
 
-    if (parsed.some((arr) => arr.length === 0)) {
-      alert("숫자를 입력해주세요! (예: 10,20,30,40)");
+    // 빈 값 체크
+    const newErrors = inputs.map((input, i) =>
+      input.trim() === "" || parsed[i].length === 0 ? t("alert_empty") : ""
+    );
+    setErrors(newErrors);
+
+    if (newErrors.some(msg => msg !== "")) {
       setView(null);
       return;
     }
 
+    // Line Chart
     if (view === "line") {
-      const maxLen = Math.max(...parsed.map((arr) => arr.length));
-      const header = ["Index", ...parsed.map((_, i) => `데이터${i + 1}`)];
+      const maxLen = Math.max(...parsed.map(arr => arr.length));
+      const header = ["Index", ...parsed.map((_, i) => `データ${i + 1}`)];
       const dataArray: (string | number | null)[][] = [header];
 
       for (let i = 0; i < maxLen; i++) {
         const row: (number | null)[] = [(i + 1) * 20];
-        parsed.forEach((arr) => row.push(arr[i] ?? null));
+        parsed.forEach(arr => row.push(arr[i] ?? null));
         dataArray.push(row);
       }
 
       const data = google.visualization.arrayToDataTable(dataArray);
       const options = {
-        title: "꺾은선 그래프",
+        title: t("line_chart"),
         curveType: "function",
         legend: { position: "bottom" },
         colors,
@@ -74,6 +100,7 @@ export default function Main() {
       new google.visualization.LineChart(chartDiv).draw(data, options);
     }
 
+    // Boxplot
     if (view === "boxplot") {
       const data = new google.visualization.DataTable();
       data.addColumn("string", "Dataset");
@@ -83,8 +110,8 @@ export default function Main() {
         data.addColumn({ id: `max${i}`, type: "number", role: "interval" });
       });
 
-      const row: any[] = ["평균"];
-      parsed.forEach((values) => {
+      const row: any[] = ["平均"];
+      parsed.forEach(values => {
         values.sort((a, b) => a - b);
         row.push(mean(values), values[0], values[values.length - 1]);
       });
@@ -92,7 +119,7 @@ export default function Main() {
 
       const options = {
         legend: "none",
-        title: "Box Plot 그래프",
+        title: t("boxplot"),
         bar: { groupWidth: "40%" },
         intervals: { style: "bars", lineWidth: 2, color: "black" },
         colors: colors.slice(0, inputs.length),
@@ -101,15 +128,16 @@ export default function Main() {
       new google.visualization.ColumnChart(chartDiv).draw(data, options);
     }
 
+    // Table
     if (view === "table") {
       const data = new google.visualization.DataTable();
       data.addColumn("string", "Index");
-      parsed.forEach((_, i) => data.addColumn("number", `데이터${i + 1}`));
+      parsed.forEach((_, i) => data.addColumn("number", `データ${i + 1}`));
 
-      const maxLen = Math.max(...parsed.map((arr) => arr.length));
+      const maxLen = Math.max(...parsed.map(arr => arr.length));
       for (let i = 0; i < maxLen; i++) {
         const row: (string | number | null)[] = [(i + 1).toString()];
-        parsed.forEach((arr) => row.push(arr[i] ?? null));
+        parsed.forEach(arr => row.push(arr[i] ?? null));
         data.addRow(row);
       }
 
@@ -126,7 +154,8 @@ export default function Main() {
 
       new google.visualization.Table(chartDiv).draw(data, options);
     }
-  }, [googleLoaded, view, inputs]);
+
+  }, [isClient, googleLoaded, view, inputs, t]);
 
   const addInput = () => setInputs([...inputs, ""]);
   const removeInput = (index: number) => setInputs(inputs.filter((_, i) => i !== index));
@@ -134,41 +163,74 @@ export default function Main() {
     const newInputs = [...inputs];
     newInputs[index] = value;
     setInputs(newInputs);
+    const newErrors = [...errors];
+    newErrors[index] = "";
+    setErrors(newErrors);
   };
   const resetAll = () => {
     setInputs(["", "", ""]);
+    setErrors([]);
     setView(null);
   };
 
   return (
     <S.Container>
-      <S.Title>데이터 시각화</S.Title>
-      <p>콤마(,)로 구분된 숫자를 입력하세요 (예: 10,20,30,40)</p>
+   
+      <S.LanguageDropdown>
+        <S.LanguageToggle onClick={() => setDropdownOpen(!dropdownOpen)}>
+          <FiGlobe style={{ marginRight: 8, fontSize: '1.2rem' }} />
+          <span>{t("language")}</span>
+          <S.ChevronIcon>▼</S.ChevronIcon>
+        </S.LanguageToggle>
+        {dropdownOpen && (
+          <S.DropdownMenu>
+            {languages.map((lang) => (
+              <S.DropdownItem
+                key={lang.code}
+                onClick={() => handleLanguageChange(lang.code)}
+                selected={lang.code === currentLang}
+              >
+                {lang.label}
+                {lang.code === currentLang && <S.CheckIcon>✓</S.CheckIcon>}
+              </S.DropdownItem>
+            ))}
+          </S.DropdownMenu>
+        )}
+      </S.LanguageDropdown>
 
-      {inputs.map((value, index) => (
-        <S.InputGroup key={index}>
-          <S.TextInput
-            type="text"
-            style={{ borderColor: colors[index % colors.length] }}
-            placeholder="데이터 입력 (예: 10,20,30,40)"
-            value={value}
-            onChange={(e) => handleChange(index, e.target.value)}
-          />
-          <S.DelButton onClick={() => removeInput(index)}>삭제</S.DelButton>
-        </S.InputGroup>
-      ))}
+      {isClient && (
+        <>
+          <S.Title>{t("title")}</S.Title>
+          <p>{t("instruction")}</p>
 
-      <S.Gbutton>
-        <S.GButton onClick={addInput}>+ Input 추가</S.GButton>
-        <S.GButton onClick={resetAll}>초기화</S.GButton>
-      </S.Gbutton>
-      <S.Sbutton>
-        <S.Button onClick={() => setView("line")}>선 그래프</S.Button>
-        <S.Button onClick={() => setView("table")}>표</S.Button>
-        <S.Button onClick={() => setView("boxplot")}>박스 플롯</S.Button>
-      </S.Sbutton>
+          {inputs.map((value, index) => (
+            <S.InputGroup key={index}>
+              <S.TextInput
+                type="text"
+                style={{ borderColor: colors[index % colors.length] }}
+                placeholder={t("input_placeholder")}
+                value={value}
+                onChange={(e) => handleChange(index, e.target.value)}
+              />
+              <S.DelButton onClick={() => removeInput(index)}>{t("delete")}</S.DelButton>
+              {errors[index] && <S.ErrorText>{errors[index]}</S.ErrorText>}
+            </S.InputGroup>
+          ))}
 
-      {view && <S.ChartWrapper id="chart_div"></S.ChartWrapper>}
+          <S.Gbutton>
+            <S.GButton onClick={addInput}>{t("add_input")}</S.GButton>
+            <S.GButton onClick={resetAll}>{t("reset")}</S.GButton>
+          </S.Gbutton>
+
+          <S.Sbutton>
+            <S.Button onClick={() => setView("line")}>{t("line_chart")}</S.Button>
+            <S.Button onClick={() => setView("table")}>{t("table")}</S.Button>
+            <S.Button onClick={() => setView("boxplot")}>{t("boxplot")}</S.Button>
+          </S.Sbutton>
+        </>
+      )}
+
+      {view && <S.ChartWrapper id="chart_div" />}
     </S.Container>
   );
 }
