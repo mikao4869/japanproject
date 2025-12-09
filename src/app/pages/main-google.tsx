@@ -173,6 +173,29 @@ export default function Main() {
     setView(null);
   };
 
+  // 입력값 검증 (alert 1회)
+const validateInputs = () => {
+  const empty = inputs.some(v => v.trim() === "");
+  if (empty) {
+    alert(t("alert_empty"));
+    return false;
+  }
+
+  const parsed = inputs.map(txt =>
+    txt.split(",")
+      .map(v => parseFloat(v.trim()))
+      .filter(n => !isNaN(n))
+  );
+
+  const invalid = parsed.some(arr => arr.length === 0);
+  if (invalid) {
+    alert(t("alert_empty"));
+    return false;
+  }
+
+  return true;
+};
+
   return (
     <S.Container>
    
@@ -223,9 +246,9 @@ export default function Main() {
           </S.Gbutton>
 
           <S.Sbutton>
-            <S.Button onClick={() => setView("line")}>{t("line_chart")}</S.Button>
-            <S.Button onClick={() => setView("table")}>{t("table")}</S.Button>
-            <S.Button onClick={() => setView("boxplot")}>{t("boxplot")}</S.Button>
+              <S.Button onClick={() => {  if (validateInputs()) setView("line");}}>{t("line_chart")}</S.Button>
+              <S.Button onClick={() => {  if (validateInputs()) setView("table");}}>{t("table")}</S.Button>
+              <S.Button onClick={() => {  if (validateInputs()) setView("boxplot");}}>{t("boxplot")}</S.Button>
           </S.Sbutton>
         </>
       )}
