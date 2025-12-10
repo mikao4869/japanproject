@@ -72,3 +72,40 @@ margin: 5px;
   background: #45a049;
 }
 `;
+
+export const AddTableButton = styled.button`
+  background: #4caf50;
+  color: white;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 6px;
+  font-size: 1rem;
+  cursor: pointer;
+  margin-bottom: 20px;
+  transition: 0.2s ease;
+
+  &:hover {
+    background: #43a047;
+  }
+
+  &:active {
+    background: #388e3c;
+  }
+`;
+
+/* ▣ 표 제목 입력창 */
+export const TitleInput = styled.input`
+  width: 100%;
+  max-width: 300px;
+  padding: 8px 10px;
+  margin-bottom: 12px;
+  border: 2px solid #cccccc;
+  border-radius: 6px;
+  font-size: 1rem;
+
+  &:focus {
+    outline: none;
+    border-color: #4caf50;
+    background: #fafffa;
+  }
+`;

@@ -1,69 +1,187 @@
-  'use client';
-  import React, { useState } from "react";
-  import * as S from '../style/table';
+'use client';
+import React, { useState } from "react";
+import * as S from '../style/table';
 
-  export function Table() {
-    // 열과 행 상태
-    const [columns, setColumns] = useState<string[]>(["조건A", "조건B", "조건C", "조건D", "조건E"]);
-    const [rows, setRows] = useState<number>(1); // 처음엔 1행만
+// 각 표의 데이터 구조
+interface TableData {
+  id: number;
+  title: string;
+  columns: string[];
+  rows: number;
+  values: string[][]; // 각 셀의 입력값 저장
+}
 
-    // 열 추가
-    const addColumn = () => {
-      setColumns([...columns, `조건${String.fromCharCode(65 + columns.length)}`]);
-    };
+export function Table() {
+  const [tables, setTables] = useState<TableData[]>([
+    {
+      id: 1,
+      title: "표 1",
+      columns: ["조건A", "조건B", "조건C"],
+      rows: 1,
+      values: [["", "", ""]],
+    },
+  ]);
 
-    // 행 추가
-    const addRow = () => {
-      setRows(rows + 1);
-    };
-
-    // 열 삭제 (마지막 열 삭제)
-    const removeColumn = () => {
-      if (columns.length > 1) {
-        setColumns(columns.slice(0, -1));
+  // 새로운 표 추가
+  const addTable = () => {
+    const newId = tables.length + 1;
+    setTables([
+      ...tables,
+      {
+        id: newId,
+        title: `표 ${newId}`,
+        columns: ["조건A", "조건B", "조건C"],
+        rows: 1,
+        values: [["", "", ""]],
       }
-    };
+    ]);
+  };
 
-    // 행 삭제 (마지막 행 삭제)
-    const removeRow = () => {
-      if (rows > 1) {
-        setRows(rows - 1);
-      }
-    };
+  // 특정 표 제목 변경
+  const updateTitle = (id: number, newTitle: string) => {
+    setTables(tables.map(tbl => 
+      tbl.id === id ? { ...tbl, title: newTitle } : tbl
+    ));
+  };
 
-    return (
-      <S.Container>
-        <h2>표 생성</h2>
-        <p>콤마(,)로 구분된 숫자를 입력하세요</p>
-      <S.TableWrapper>
+  // 셀 입력값 갱신
+  const updateCell = (tableId: number, row: number, col: number, value: string) => {
+    setTables(tables.map(tbl => {
+      if (tbl.id !== tableId) return tbl;
 
-          <S.Button onClick={addColumn}>열 추가</S.Button>
-          <S.DelButton onClick={removeColumn}>열 삭제</S.DelButton>
-          <S.Button onClick={addRow}>행 추가</S.Button>
-          <S.DelButton onClick={removeRow}>행 삭제</S.DelButton>
-    
+      const newValues = tbl.values.map(r => [...r]);
+      newValues[row][col] = value;
 
-        <S.Table>
-          <thead>
-            <tr>
-              {columns.map((col, idx) => (
-                <S.Th key={idx} scope="col">{col}</S.Th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {[...Array(rows)].map((_, rowIndex) => (
-              <tr key={rowIndex}>
-                {columns.map((_, colIndex) => (
-                  <S.Td key={colIndex}>
-                    <S.Cell />
-                  </S.Td>
+      return { ...tbl, values: newValues };
+    }));
+  };
+
+  // 열 추가
+  const addColumn = (id: number) => {
+    setTables(tables.map(tbl => {
+      if (tbl.id !== id) return tbl;
+
+      const newColName = `조건${String.fromCharCode(65 + tbl.columns.length)}`;
+      return {
+        ...tbl,
+        columns: [...tbl.columns, newColName],
+        values: tbl.values.map(row => [...row, ""]),
+      };
+    }));
+  };
+
+  // 열 삭제
+  const removeColumn = (id: number) => {
+    setTables(tables.map(tbl => {
+      if (tbl.id !== id || tbl.columns.length <= 1) return tbl;
+
+      return {
+        ...tbl,
+        columns: tbl.columns.slice(0, -1),
+        values: tbl.values.map(row => row.slice(0, -1)),
+      };
+    }));
+  };
+
+  // 행 추가
+  const addRow = (id: number) => {
+    setTables(tables.map(tbl => {
+      if (tbl.id !== id) return tbl;
+
+      return {
+        ...tbl,
+        rows: tbl.rows + 1,
+        values: [...tbl.values, new Array(tbl.columns.length).fill("")],
+      };
+    }));
+  };
+
+  // 행 삭제
+  const removeRow = (id: number) => {
+    setTables(tables.map(tbl => {
+      if (tbl.id !== id || tbl.rows <= 1) return tbl;
+
+      return {
+        ...tbl,
+        rows: tbl.rows - 1,
+        values: tbl.values.slice(0, -1),
+      };
+    }));
+  };
+
+  // 평균 계산
+  const calcMean = (tbl: TableData) => {
+    return tbl.columns.map((_, colIdx) => {
+      const nums = tbl.values
+        .map(row => parseFloat(row[colIdx]))
+        .filter(n => !isNaN(n));
+
+      if (nums.length === 0) return "-";
+
+      const avg = nums.reduce((a, b) => a + b, 0) / nums.length;
+      return avg.toFixed(2);
+    });
+  };
+
+  return (
+    <S.Container>
+      <h2>표 생성 기능</h2>
+      <S.AddTableButton onClick={addTable}>+ 새 표 추가</S.AddTableButton>
+
+      {tables.map((tbl) => {
+        const means = calcMean(tbl);
+
+        return (
+          <S.TableWrapper key={tbl.id}>
+            
+            {/* 조작 버튼들 */}
+            <div>
+              <S.Button onClick={() => addColumn(tbl.id)}>열 추가</S.Button>
+              <S.DelButton onClick={() => removeColumn(tbl.id)}>열 삭제</S.DelButton>
+
+              <S.Button onClick={() => addRow(tbl.id)}>행 추가</S.Button>
+              <S.DelButton onClick={() => removeRow(tbl.id)}>행 삭제</S.DelButton>
+            </div>
+
+            {/* 표 렌더링 */}
+            <S.Table>
+              <thead>
+                <tr>
+                  {tbl.columns.map((col, idx) => (
+                    <S.Th key={idx}>{col}</S.Th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {tbl.values.map((row, rIdx) => (
+                  <tr key={rIdx}>
+                    {row.map((cell, cIdx) => (
+                      <S.Td key={cIdx}>
+                        <S.Cell
+                          value={cell}
+                          onChange={(e) =>
+                            updateCell(tbl.id, rIdx, cIdx, e.target.value)
+                          }
+                          placeholder="숫자 입력"
+                        />
+                      </S.Td>
+                    ))}
+                  </tr>
                 ))}
-              </tr>
-            ))}
-          </tbody>
-        </S.Table>
-      </S.TableWrapper>
-      </S.Container>
-    );
-  } 
+
+                {/* 평균 행 */}
+                <tr>
+                  {means.map((avg, i) => (
+                    <S.Td key={i} style={{ background: "#f4f4f4", fontWeight: "bold" }}>
+                      {avg}
+                    </S.Td>
+                  ))}
+                </tr>
+              </tbody>
+            </S.Table>
+          </S.TableWrapper>
+        );
+      })}
+    </S.Container>
+  );
+}
