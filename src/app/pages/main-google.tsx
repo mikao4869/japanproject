@@ -112,36 +112,130 @@ export default function Main() {
       new google.visualization.LineChart(chartDiv).draw(data, options);
     }
 
-    // 📌 Table + 평균 자동 추가 기능 포함
-    if (view === "table") {
-      const data = new google.visualization.DataTable();
-      data.addColumn("string", "Index");
-      parsed.forEach((_, i) => data.addColumn("number", `Data${i + 1}`));
+// 📌 Table (+ 제목 input / 행+열 추가 버튼 포함)
+if (view === "table") {
+  const data = new google.visualization.DataTable();
 
-      const maxLen = Math.max(...parsed.map(arr => arr.length));
-      for (let i = 0; i < maxLen; i++) {
-        const row: (string | number | null)[] = [(i + 1).toString()];
-        parsed.forEach(arr => row.push(arr[i] ?? null));
-        data.addRow(row);
-      }
+  // Index → string
+  data.addColumn("string", "Index");
 
-      // ⭐ 평균 행 자동 추가
-      const meanRow: (string | number)[] = ["Mean"];
-      parsed.forEach(arr => meanRow.push(Number(mean(arr).toFixed(2))));
-      data.addRow(meanRow);
+  // 데이터셋 → number
+  parsed.forEach((_, i) => data.addColumn("number", `Data${i + 1}`));
 
-      const options = {
-        showRowNumber: false,
-        width: "60%",
+  // ⭐ 버튼 열 → string
+  data.addColumn("string", "+");
+
+  const maxLen = Math.max(...parsed.map(arr => arr.length));
+
+  for (let i = 0; i < maxLen; i++) {
+    const row: (string | number | null)[] = [];
+
+    // Index
+    row.push((i + 1).toString());
+
+    // Data columns (number or null)
+    parsed.forEach(arr => row.push(arr[i] ?? null));
+
+    // 버튼 열(string)
+    row.push(`<button class="add-row-btn" data-row="${i}">+</button>`);
+
+    data.addRow(row);
+  }
+
+  // ⭐ 평균 행
+  const meanRow: (string | number)[] = [];
+
+  // Index 자리
+  meanRow.push("Mean");
+
+  // 숫자 데이터
+  parsed.forEach(arr => meanRow.push(Number(mean(arr).toFixed(2))));
+
+  // 버튼 (string)
+  meanRow.push(`<button class="add-row-btn" data-row="mean">+</button>`);
+
+  data.addRow(meanRow);
+
+
+  const options = {
+    showRowNumber: false,
+    width: "60%",
+    allowHtml: true,
+  };
+
+  const table = new google.visualization.Table(chartDiv);
+
+  google.visualization.events.addListener(table, "ready", () => {
+    const thList = chartDiv.getElementsByTagName("th");
+
+    // ⭐ 표 제목 입력창
+    if (thList.length > 0) {
+      const indexHeader = thList[0];
+      indexHeader.innerHTML = `
+        <input
+          id="table-title-input"
+          type="text"
+          defaultValue="${tableTitle}"
+          placeholder="표의 이름을 입력해주세요"
+          style="
+            width:120px;
+            border:1px solid #ccc;
+            padding:3px;
+            font-size:13px;
+            text-align:center;
+            border-radius:6px;
+          "
+        />
+      `;
+
+      setTimeout(() => {
+        const inputEl = document.getElementById("table-title-input") as HTMLInputElement;
+        if (inputEl) {
+          inputEl.oninput = (e: any) => {
+            setTableTitle(e.target.value); // React state 업데이트
+          };
+        }
+      }, 0);
+    }      
+
+    // ⭐ 행 추가 버튼
+    const rowButtons = chartDiv.getElementsByClassName("add-row-btn");
+    Array.from(rowButtons).forEach((btn: any) => {
+      btn.onclick = () => {
+        const updated = inputs.map(v => v + ",0");
+        setInputs(updated);
       };
+    });
 
-      new google.visualization.Table(chartDiv).draw(data, options);
-    }
+    // ⭐ 열 추가 버튼
+    const lastHeader = thList[thList.length - 1];
+    lastHeader.innerHTML = `
+      <button id="add-col-btn"
+        style="
+          padding:3px 6px;
+          border:1px solid #888;
+          border-radius:4px;
+          background:#f0f0f0;
+        "
+      >+</button>
+    `;
+
+    setTimeout(() => {
+      const addColBtn = document.getElementById("add-col-btn");
+      if (addColBtn) addColBtn.onclick = () => setInputs([...inputs, ""]);
+    }, 0);
+  });
+
+  table.draw(data, options);
+}
+
+
 
     // 📌 Boxplot
     if (view === "boxplot") {
       const data = new google.visualization.DataTable();
       data.addColumn("string", "Dataset");
+
       parsed.forEach((_, i) => {
         data.addColumn("number", `Set ${i + 1}`);
         data.addColumn({ id: `min${i}`, type: "number", role: "interval" });
@@ -166,7 +260,8 @@ export default function Main() {
       new google.visualization.ColumnChart(chartDiv).draw(data, options);
     }
 
-  }, [isClient, googleLoaded, view, inputs, tableTitle, t]);
+  }, [isClient, googleLoaded, view, inputs, t]);
+
 
   const addInput = () => setInputs([...inputs, ""]);
   const removeInput = (index: number) => {
