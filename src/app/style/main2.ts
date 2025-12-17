@@ -365,3 +365,24 @@ export const LanguageToggleWithChevron = styled(LanguageToggle)`
     transform: rotate(180deg);
   }
 `;
+
+export const TableTitleInput = styled.input`
+  width: 120px;
+  border: 1px solid #ccc;
+  padding: 3px;
+  font-size: 13px;
+  text-align: center;
+  border-radius: 6px;
+  
+  &::placeholder {
+    text-align: center;
+  }
+`;
+
+export const AddColButton = styled.button`
+  padding: 3px 6px;
+  border: 1px solid #888;
+  border-radius: 4px;
+  background: #f0f0f0;
+  cursor: pointer;
+`;

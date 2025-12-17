@@ -8,6 +8,7 @@
   "line_chart": "折れ線グラフ",
   "table": "表",
   "boxplot": "ボックスプロット",
-  "alert_empty": "数字を入力してください！（例：10,20,30,40）"
+  "alert_empty": "数字を入力してください！（例：10,20,30,40）",
+    "tableTitlePlaceholder": "表名を入力"
 }
   

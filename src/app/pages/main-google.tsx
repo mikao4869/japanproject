@@ -22,7 +22,6 @@ export default function Main() {
   const [isClient, setIsClient] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
   const [dropdownOpen, setDropdownOpen] = useState(false);
-
   // ⭐ 새로 추가된 상태
   const [tableTitle, setTableTitle] = useState<string>("");
 
@@ -61,6 +60,17 @@ export default function Main() {
     };
   }, [isClient]);
 
+  // ⭐ 별도 useEffect: tableTitle 변경 시 input value DOM 직접 업데이트 (차트 재그리기 없이)
+  useEffect(() => {
+    if (view !== "table") return;
+
+    const inputEl = document.getElementById("table-title-input") as HTMLInputElement | null;
+    if (inputEl) {
+      const displayTitle = tableTitle.trim() === "" ? "" : tableTitle;
+      inputEl.value = displayTitle;  // 직접 value 설정으로 동기화 (placeholder 보이게 빈 문자열)
+    }
+  }, [tableTitle, view, t]);
+
   useEffect(() => {
     if (!isClient || !googleLoaded || !view) return;
 
@@ -94,13 +104,11 @@ export default function Main() {
       const maxLen = Math.max(...parsed.map(arr => arr.length));
       const header = ["Index", ...parsed.map((_, i) => `Data${i + 1}`)];
       const dataArray: (string | number | null)[][] = [header];
-
       for (let i = 0; i < maxLen; i++) {
         const row: (number | null)[] = [(i + 1) * 20];
         parsed.forEach(arr => row.push(arr[i] ?? null));
         dataArray.push(row);
       }
-
       const data = google.visualization.arrayToDataTable(dataArray);
       const options = {
         title: chartTitle,
@@ -108,128 +116,90 @@ export default function Main() {
         legend: { position: "bottom" },
         colors,
       };
-
       new google.visualization.LineChart(chartDiv).draw(data, options);
     }
 
-// 📌 Table (+ 제목 input / 행+열 추가 버튼 포함)
-if (view === "table") {
-  const data = new google.visualization.DataTable();
+    // 📌 Table (제목 input만 유지, + 버튼 제거)
+    if (view === "table") {
+      const data = new google.visualization.DataTable();
 
-  // Index → string
-  data.addColumn("string", "Index");
+      // Index → string
+      data.addColumn("string", "Index");
 
-  // 데이터셋 → number
-  parsed.forEach((_, i) => data.addColumn("number", `Data${i + 1}`));
+      // 데이터셋 → number
+      parsed.forEach((_, i) => data.addColumn("number", `Data${i + 1}`));
 
-  // ⭐ 버튼 열 → string
-  data.addColumn("string", "+");
+      const maxLen = Math.max(...parsed.map(arr => arr.length));
 
-  const maxLen = Math.max(...parsed.map(arr => arr.length));
+      for (let i = 0; i < maxLen; i++) {
+        const row: (string | number | null)[] = [];
 
-  for (let i = 0; i < maxLen; i++) {
-    const row: (string | number | null)[] = [];
+        // Index
+        row.push((i + 1).toString());
 
-    // Index
-    row.push((i + 1).toString());
+        // Data columns (number or null)
+        parsed.forEach(arr => row.push(arr[i] ?? null));
 
-    // Data columns (number or null)
-    parsed.forEach(arr => row.push(arr[i] ?? null));
+        data.addRow(row);
+      }
 
-    // 버튼 열(string)
-    row.push(`<button class="add-row-btn" data-row="${i}">+</button>`);
+      // ⭐ 평균 행
+      const meanRow: (string | number)[] = [];
 
-    data.addRow(row);
-  }
+      // Index 자리
+      meanRow.push("Mean");
 
-  // ⭐ 평균 행
-  const meanRow: (string | number)[] = [];
+      // 숫자 데이터
+      parsed.forEach(arr => meanRow.push(Number(mean(arr).toFixed(2))));
 
-  // Index 자리
-  meanRow.push("Mean");
+      data.addRow(meanRow);
 
-  // 숫자 데이터
-  parsed.forEach(arr => meanRow.push(Number(mean(arr).toFixed(2))));
-
-  // 버튼 (string)
-  meanRow.push(`<button class="add-row-btn" data-row="mean">+</button>`);
-
-  data.addRow(meanRow);
-
-
-  const options = {
-    showRowNumber: false,
-    width: "60%",
-    allowHtml: true,
-  };
-
-  const table = new google.visualization.Table(chartDiv);
-
-  google.visualization.events.addListener(table, "ready", () => {
-    const thList = chartDiv.getElementsByTagName("th");
-
-    // ⭐ 표 제목 입력창
-    if (thList.length > 0) {
-      const indexHeader = thList[0];
-      indexHeader.innerHTML = `
-        <input
-          id="table-title-input"
-          type="text"
-          defaultValue="${tableTitle}"
-          placeholder="표의 이름을 입력해주세요"
-          style="
-            width:120px;
-            border:1px solid #ccc;
-            padding:3px;
-            font-size:13px;
-            text-align:center;
-            border-radius:6px;
-          "
-        />
-      `;
-
-      setTimeout(() => {
-        const inputEl = document.getElementById("table-title-input") as HTMLInputElement;
-        if (inputEl) {
-          inputEl.oninput = (e: any) => {
-            setTableTitle(e.target.value); // React state 업데이트
-          };
-        }
-      }, 0);
-    }      
-
-    // ⭐ 행 추가 버튼
-    const rowButtons = chartDiv.getElementsByClassName("add-row-btn");
-    Array.from(rowButtons).forEach((btn: any) => {
-      btn.onclick = () => {
-        const updated = inputs.map(v => v + ",0");
-        setInputs(updated);
+      const options = {
+        showRowNumber: false,
+        width: "60%",
+        allowHtml: true,
+        sort: 'disable'  // ⭐ 정렬 비활성화: 헤더 클릭 시 정렬되지 않음
       };
-    });
 
-    // ⭐ 열 추가 버튼
-    const lastHeader = thList[thList.length - 1];
-    lastHeader.innerHTML = `
-      <button id="add-col-btn"
-        style="
-          padding:3px 6px;
-          border:1px solid #888;
-          border-radius:4px;
-          background:#f0f0f0;
-        "
-      >+</button>
-    `;
+      const table = new google.visualization.Table(chartDiv);
 
-    setTimeout(() => {
-      const addColBtn = document.getElementById("add-col-btn");
-      if (addColBtn) addColBtn.onclick = () => setInputs([...inputs, ""]);
-    }, 0);
-  });
+      google.visualization.events.addListener(table, "ready", () => {
+        const thList = chartDiv.getElementsByTagName("th");
 
-  table.draw(data, options);
-}
+        // ⭐ 표 제목 입력창 (inline style으로 중앙 정렬 적용)
+        if (thList.length > 0) {
+          const indexHeader = thList[0];
+          const initialTitle = tableTitle.trim() === "" ? "" : tableTitle;  // 빈 경우 value=""로 placeholder 표시
+          indexHeader.innerHTML = `
+            <input
+              id="table-title-input"
+              type="text"
+              value="${initialTitle}"
+              placeholder="${t("tableTitlePlaceholder")}"
+              style="
+                width: 120px;
+                border: 1px solid #ccc;
+                padding: 3px;
+                font-size: 13px;
+                text-align: center;
+                border-radius: 6px;
+              "
+            />
+          `;
 
+          setTimeout(() => {
+            const inputEl = document.getElementById("table-title-input") as HTMLInputElement;
+            if (inputEl) {
+              inputEl.oninput = (e: any) => {
+                setTableTitle(e.target.value); // React state 업데이트
+              };
+            }
+          }, 0);
+        }
+      });
 
+      table.draw(data, options);
+    }
 
     // 📌 Boxplot
     if (view === "boxplot") {
@@ -259,11 +229,10 @@ if (view === "table") {
 
       new google.visualization.ColumnChart(chartDiv).draw(data, options);
     }
-
-  }, [isClient, googleLoaded, view, inputs, t]);
-
+  }, [isClient, googleLoaded, view, inputs, i18n.language]);  // t 대신 i18n.language 사용으로 안정화
 
   const addInput = () => setInputs([...inputs, ""]);
+
   const removeInput = (index: number) => {
     setInputs(inputs.filter((_, i) => i !== index));
     setErrors(errors.filter((_, i) => i !== index));
@@ -293,7 +262,6 @@ if (view === "table") {
 
   return (
     <S.Container>
-
       {/* 언어 변경 */}
       <S.LanguageDropdown>
         <S.LanguageToggle onClick={() => setDropdownOpen(!dropdownOpen)}>
