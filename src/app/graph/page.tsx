@@ -1,7 +1,7 @@
-"use client";
+export const dynamic = "force-dynamic";
 
-const Graph: React.FC = () => {
-  return <div>Graph 컴포넌트</div>;
-};
+import Graph from "../component/graph";
 
-export default Graph; 
+export default function Page() {
+  return <Graph />;
+}

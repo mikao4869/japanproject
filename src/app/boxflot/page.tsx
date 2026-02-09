@@ -1,7 +1,7 @@
-"use client";
+export const dynamic = "force-dynamic";
 
-const Boxflot: React.FC = () => {
-  return <div>Boxflot 컴포넌트</div>;
-};
+import Boxflot from "../component/boxflot";
 
-export default Boxflot; 
+export default function Page() {
+  return <Boxflot />;
+}
