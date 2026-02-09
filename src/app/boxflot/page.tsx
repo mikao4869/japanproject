@@ -1,3 +1,5 @@
+"use client";
+
 const Boxflot: React.FC = () => {
   return <div>Boxflot 컴포넌트</div>;
 };
